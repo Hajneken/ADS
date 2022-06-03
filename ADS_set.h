@@ -147,13 +147,6 @@ public:
     */
     void insert(std::initializer_list<key_type> ilist)
     {
-        // for (const auto &key : ilist)
-        // {
-        //     if (!locate(key))
-        //     {
-        //         add(key);
-        //     }
-        // }
         if (!ilist.size())
         {
             return;
@@ -169,14 +162,9 @@ public:
     bool: true if an element was inserted, false otherwise. hashing O(1)  */
     std::pair<iterator, bool> insert(const key_type &key)
     {
-        // check if element exists
         Element *element{locate(key)};
-        if (element)
+        if (element) // element exists?
         {
-            // Element **table;
-            // Element *currentElementPtr;
-            // size_type index;
-            // size_type table_size;
             return {iterator{table, add(key), hash(key), table_size}, false};
         }
 
@@ -188,7 +176,8 @@ public:
     /*PH2 copy constructor*/
     ADS_set(const ADS_set &other) : ADS_set{}
     {
-        reserve(other.table_size);
+        reserve(other.inserted_elements);
+        // TODO: CRASHES HERE
         for (const auto &key : other)
         {
             add(key);
@@ -201,6 +190,7 @@ public:
     */
     ~ADS_set()
     {
+        clear(); // free up all
         delete[] table;
     };
 
@@ -227,12 +217,6 @@ public:
     */
     ADS_set &operator=(std::initializer_list<key_type> ilist)
     {
-        // don't swap if the contents are the same
-        // if (&other == this)
-        // {
-        //     return *this;
-        // }
-
         ADS_set temporary{ilist};
         swap(temporary);
         return *this;
@@ -289,6 +273,7 @@ public:
                 table[index] = nullptr;
             }
         }
+        // all elements deleted
         table_size = 0;
     }
 
@@ -353,7 +338,9 @@ public:
     */
     iterator find(const key_type &key) const
     {
-        if (Element * element{locate(key)})
+        Element *element{locate(key)};
+
+        if (element)
         {
             return iterator{table, element, hash(key), table_size};
         }
@@ -388,10 +375,6 @@ public:
     */
     const_iterator end() const
     {
-        // Element **table;
-        // Element *currentElementPtr;
-        // size_type index;
-        // size_type table_size;
         return const_iterator(table, nullptr, table_size, table_size);
     }
 
@@ -410,14 +393,14 @@ public:
     */
     friend bool operator==(const ADS_set &lhs, const ADS_set &rhs)
     {
-        // TODO
-        if (lhs.table_size != rhs.table_size)
+        // same number of inserted elements?
+        if (lhs.inserted_elements != rhs.inserted_elements)
         {
             return false;
         }
         for (const auto &key : lhs)
         {
-            if (!rhs.locate(key))
+            if (rhs.locate(key) == nullptr)
             {
                 return false;
             }
@@ -440,11 +423,9 @@ template <typename Key, size_t N>
 template <typename InputIt>
 void ADS_set<Key, N>::insert(InputIt first, InputIt last)
 {
-    // std::cout << "INSERT" << std::endl;
     for (auto it{first}; it != last; ++it)
     {
-        // if not found
-        if (count(*it) == 0)
+        if (count(*it) == 0) // if el not found
         {
             reserve(inserted_elements + 1);
             add(*it);
@@ -594,21 +575,24 @@ class ADS_set<Key, N>::Iterator
     size_type index;
     size_type table_size;
 
-    // we'll need index to keep track of what position we will be at
-
     /*
     check if we are on the valid position, if not go to the valid position until the end is reached
     the function will be called within a constructor and overloaded ++ operator
      */
     void skip()
     {
-        // if the position is unocupied then increment e -> ++e ?
-        while (!currentElementPtr && (index + 1) < table_size)
+        // if the position is unocupied then increment e -> ++e
+        while (!currentElementPtr)
         {
-            currentElementPtr = table[++index];
+            if ((index + 1) < table_size)
+            {
+                currentElementPtr = table[++index];
+            }
+            else
+            {
+                return;
+            }
         }
-        // while (!pos && idx+1<table_size){
-        // pos = table[++idx];
     }
 
 public:
