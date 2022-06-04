@@ -248,11 +248,10 @@ use valgrind to check for memory `valgrind --log-file=log.txt ./a.out`
 * use after free
 
 > what is an iterator? 
-an object that can iterate through a collection 
-`it.begin()` points at the first element 
-`it.end()` points at element after the last (n+1) 
+an object that can iterate through a collection that can be thought of as a the generalization of a pointer 
+* `it.begin()` points at the first element 
+* `it.end()` points at element after the last (n+1) 
 -> $[it.begin(), it.end())$
-* a generalization of a pointer 
 -> a pointer to value
 3 conditions: 
 1. dereferencable 
@@ -260,3 +259,43 @@ an object that can iterate through a collection
 3. comperable `it1 == it2` `it1 != it2`
 4. incrementable `it++` `it--`
 
+> what are Member Initializer list and constructor initializer list 
+it's 1 of 2 ways to initialize object members 
+imagine a class with 2 private variables `member_name` and `member_age`
+the regular way to do this:
+```CPP
+//regular constructor
+Entity(const std::string &name, int &age){
+   member_name = name
+   member_age = age
+}
+```
+or using initializer object member 
+```CPP
+Entity(): member_name("Hynek"), member_age(24) {}
+```
+❗members are initialized in the order they have been declared in the class not in the initializer list 
+
+why to use it: to save space, it's more readable, leave the `{}` for some more sofisticated logic
+
+refresher: https://www.youtube.com/watch?v=1nfuYMXjZsA
+
+> what is the copy constructor? 
+In C++ if we assign, we copy e.g.:
+```CPP
+int x = 2;
+int y = x; // copy of x is being made
+y++ // y == 3, x==2
+```
+the underlying copy process is managed by Copy constructor 
+-> we construct a new object of the same type and same value (we make copy)
+
+e.g.: for string we take a reference of the thing we are copying a.k.a. the `other`
+```CPP
+String(const String& other): m_stuff(stuff){}
+```
+
+if we DON'T want to allow copying do
+```CPP
+String(const String& other) = delete;
+```
