@@ -1,0 +1,8 @@
+new
+ii 2 666
+dump
+erase 2
+dump
+ii 2 333
+erase 666
+dump

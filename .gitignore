@@ -2,3 +2,5 @@ simpletest.cpp
 btest.cpp
 test.txt
 log.txt
+performanceLog.txt
+simpleTestLog.txt

@@ -11,37 +11,18 @@
 -----------------
 SEPARATE CHAINING
 -----------------
-Specifications: https://cewebs.cs.univie.ac.at/algodat/ss22/index.php?m=D&t=info&c=show&CEWebS_what=Spezifikation
-Example IMPL BISEH: https://cewebs.cs.univie.ac.at/ADS/ss22/index.php?m=D&t=unterlagen&c=show&CEWebS_what=livetextbiseh
-Example IMPL Double Hashing: https://cewebs.cs.univie.ac.at/ADS/ss22/index.php?m=D&t=unterlagen&c=show&CEWebS_what=livetextdh
+author: Hynek Zemanec
 -----------------
-# Phase1
-*  Size (size, empty)
-*  Insert
-*  Search (count, find,)
-
-# Phase 2: https://eu-lti.bbcollab.com/collab/ui/session/playback/load/7c6fa97ca0254a29909c36b35037b968
-video:
-*  iterators
-*  destructor
-*  operators: ==, ->, *
-*  Delete (clear, erase, swap)
+Conventions:
+* snake_case for member variables
+* camelCase for everything else
 -----------------
-Graphic: https://media.geeksforgeeks.org/wp-content/uploads/20210821212740/Arrayoflinklist.PNG
------------------
-Sequence:
-#102 : ADS_set constructor
-#290 : INSERT
-#232 : COUNT
-#323 : LOCATE
-#351 : RESERVE
-#290 : ADD
------------------
+Specs: https://cewebs.cs.univie.ac.at/algodat/ss22/index.php?m=D&t=info&c=show&CEWebS_what=Spezifikation
 */
 
-/* ADS_set is a container that stores elements (pointer to the array of element pointers)
+/* ADS_set is a container for elements (a simplification "std::set" and "std::unordered_set")
 Elements are identified by a key. (the entire stored element serves as the key)
-ADS_set is a simplification "std::set" and "std::unordered_set".
+
 insertion of existing values is ignored
 N: the initial size of the hash table */
 template <typename Key, size_t N = 7>
@@ -63,18 +44,18 @@ public:
 
 private:
     /*
-    nextPtr is pointer to the adjecent element (that hashed to the same index)
+    nextPtr: pointer to the adjecent element (that hashed to the same index)
     */
-    struct Element // TODO destructor of Element?
+    struct Element
     {
         key_type key;
         Element *nextPtr{nullptr};
     };
 
-    Element **table{nullptr}; // pointer to the array of pointers
-    size_type table_size{0};
-    size_type inserted_elements{0};
-    float max_load_factor{0.7}; // recommended
+    Element **table{nullptr};       // pointer to the array of pointers
+    size_type table_size{0};        // how much room there is
+    size_type inserted_elements{0}; // how many elements have been inserted
+    float max_load_factor{0.7};     // recommended inserted_elements/table_size
 
     /*
     Helper function used in insert() method to add element (key) to the table.
@@ -95,10 +76,7 @@ private:
     /*
     Hashing function
     */
-    size_type hash(const key_type &key) const
-    {
-        return hasher{}(key) % table_size;
-    }
+    size_type hash(const key_type &key) const;
 
     /*
     Rehash all values from the old table to conform to the new table
@@ -107,20 +85,20 @@ private:
 
 public:
     /* ------- CONSTRUCTORS ------- */
+
     /*
-    Default constructor. Creates an empty container -> an array of pointers to elements
+    Default constructor. empty container (an array) of Element pointers, nullptr by default
     */
     ADS_set() : table{new Element *[N] {}}, table_size{N}, inserted_elements{0}
     {
-        for (size_t index = 0; index < N; index++)
+        for (size_t index = 0; index < N; ++index)
         {
             table[index] = nullptr; // there may be otherwise leftover garbage
         }
     };
 
     /*
-    initializer list constructor: Creates a container containing the elements from ilist.
-    The elements are inserted in the order specified in ilist.
+    initializer list constructor: Creates a container containing the elements from ilist. The elements are inserted in the order specified in ilist.
     */
     ADS_set(std::initializer_list<key_type> ilist) : ADS_set{}
     {
@@ -128,10 +106,7 @@ public:
     }
 
     /*
-    Range constructor.
-    Creates a container containing the elements from the range `[first, last]`. The elements are inserted in the given order (starting with first).
-    e.g. first = 1, last = 5 => [1, 2, 3, 4, 5]
-    Complexity: Hashing: O(range_size)
+    Range constructor. Creates a container containing the elements from the range `[first, last]`. The elements are inserted in the given order (starting with first). e.g. first = 1, last = 5 => [1, 2, 3, 4, 5] Complexity: Hashing: O(range_size)
     */
     template <typename InputIt>
     ADS_set(InputIt first, InputIt last) : ADS_set{}
@@ -143,12 +118,6 @@ public:
     ADS_set(const ADS_set &other) : ADS_set{}
     {
         reserve(other.inserted_elements);
-        // TODO: CRASHES HERE
-        // std::cout << "#179 this->: " << this->inserted_elements << std::endl;
-        // std::cout << "#179 other.un: " << other.inserted_elements << std::endl;
-
-        // std::cout << "#182 this->table_size: " << this->table_size << std::endl;
-        // std::cout << "#183 other.table_size: " << other.table_size << std::endl;
         for (const auto &key : other)
         {
             add(key);
@@ -160,11 +129,25 @@ public:
     */
     ~ADS_set()
     {
-        clear(); // free up all
+        // free up memory from all buckets first
+        for (size_type index{0}; index < table_size; ++index)
+        {
+            if (table[index] != nullptr)
+            {
+                Element *currentElement = table[index];
+                while (currentElement)
+                {
+                    Element *nextPtr = currentElement->nextPtr;
+                    delete (currentElement);
+                    currentElement = nextPtr;
+                }
+                table[index] = nullptr;
+            }
+        }
         delete[] table;
     };
 
-    /* ------- METHODS ------- */
+    /* ------- PUBLIC METHODS ------- */
     /*
     Inserts the elements from ilist. The elements are inserted in the order specified in ilist. Complexity: O(ilist_size)
     */
@@ -187,16 +170,16 @@ public:
         Element *element{locate(key)};
         if (element) // element exists?
         {
-            return std::make_pair(iterator{table, element, hash(key), table_size}, false);
+            return {iterator{table, element, hash(key), table_size}, false};
         }
 
+        // check with load factor condition and insert new element
         reserve(inserted_elements + 1);
-
-        return std::make_pair(iterator{table, add(key), hash(key), table_size}, true);
+        return {iterator{table, add(key), hash(key), table_size}, true};
     }
 
     /*
-     Return value: Number of elements stored in the container.
+     Return value: Number of inserted elements that are stored in the container.
     */
     size_type size() const
     {
@@ -204,7 +187,7 @@ public:
     }
 
     /*
-    Return value: true if size()==0, false otherwise.
+    true if size()==0, false otherwise.
     */
     bool empty() const
     {
@@ -225,81 +208,61 @@ public:
 
     /*
     Inserts the elements from the range [first, last[ in the given order (starting with first).
-    Internally uses add() method.
-    Complexity: Hashing: O(range_size)
+    Internally uses add() method. Complexity: Hashing: O(range_size)
     */
     template <typename InputIt>
     void insert(InputIt first, InputIt last);
 
     /*
-    PH2
-    Removes all elements from the container. Complexity: O(size)
+    PH2: Removes all elements from the container. Complexity: O(size)
     */
     void clear()
     {
-        // Beispiel Impl: trick with empty container swap
-        // ADS_set temporary;
-        // swap(temporary);
-        for (size_type index{0}; index < table_size; ++index)
-        {
-            if (table[index] != nullptr)
-            {
-                Element *currentElement = table[index];
-                while (currentElement)
-                {
-                    Element *nextPtr = currentElement->nextPtr;
-                    delete (currentElement);
-                    currentElement = nextPtr;
-                }
-                table[index] = nullptr;
-            }
-        }
-        table_size = 0; // all elements deleted
+        ADS_set temp;
+        swap(temp);
     }
 
     /*
     PH2: Removes the element key.
     Return value: number of deleted elements (0 or 1).
-    With the static hash procedures, it is not necessary to reduce an enlarged table again.
+    For static hash procedures, it is not necessary to reduce an enlarged table again.
     */
     size_type erase(const key_type &key)
     {
-        Element *temporary{nullptr};
         Element *elementPtr{table[hash(key)]};
+        Element *auxElementPtr{nullptr};
 
         while (elementPtr)
         {
             if (key_equal{}(elementPtr->key, key))
             {
-
-                if (temporary)
+                if (auxElementPtr)
                 {
-                    temporary->nextPtr = elementPtr->nextPtr;
+                    auxElementPtr->nextPtr = elementPtr->nextPtr;
                 }
                 else
                 {
                     table[hash(key)] = elementPtr->nextPtr;
                 }
+
                 delete elementPtr;
-                table_size--;
+                --inserted_elements;
+
                 return 1;
             }
-            temporary = elementPtr;
-            elementPtr = elementPtr->nextPtr;
+            auxElementPtr = elementPtr;
+            elementPtr = auxElementPtr->nextPtr;
         }
         return 0;
     }
 
     /*
-    //PH2
-    Return value: an iterator on the element with the key, or the end iterator (see end()) if no such element exists.
+    PH2: Return value: an iterator on the element with the key, or the end iterator (see end()) if no such element exists.
     Complexity: hashing O(1)
     */
     iterator find(const key_type &key) const
     {
-        Element *element{locate(key)};
-
-        if (element)
+        if (Element * element{locate(key)})
         {
             return iterator{table, element, hash(key), table_size};
         }
@@ -307,8 +270,7 @@ public:
     }
 
     /*
-    PH2
-    Swaps the elements of the container with the elements of the container other.Complexity: O(1)
+    PH2: Swaps the elements of the container with the elements of the container other.Complexity: O(1)
     */
     void swap(ADS_set &other)
     {
@@ -319,8 +281,7 @@ public:
     }
 
     /*
-    PH2
-    Return value: Iterator on the first element or the end iterator if the container is empty.
+    PH2: Return value: Iterator on the first element or the end iterator if the container is empty.
     */
     const_iterator begin() const
     {
@@ -328,8 +289,7 @@ public:
     }
 
     /*
-    //PH2
-    Returns an iterator to the (virtual) element after the last element in the container ("end iterator").
+    PH2: Returns an iterator to the (virtual) element after the last element in the container ("end iterator").
     Return value: End iterator
     */
     const_iterator end() const
@@ -346,10 +306,7 @@ public:
     /* ------- OPERATORS ------- */
 
     /*
-    //PH2
-    Checks if the contents of two containers are equal. The contents are equal if the containers are of the same size and for each element in lhs there is an element in rhs with the same key.[5].
-    Return value: true if the container contents are equal, false otherwise.
-    Complexity: O(size).
+    PH2: Checks if the contents of two containers are equal. The contents are equal if the containers are of the same size and for each element in lhs there is an element in rhs with the same key. Return value: true if the container contents are equal, false otherwise. Complexity: O(size).
     */
     friend bool operator==(const ADS_set &lhs, const ADS_set &rhs)
     {
@@ -369,8 +326,7 @@ public:
     }
 
     /*
-    //PH2
-    Checks if the contents of two containers are not equal.
+    PH2: Checks if the contents of two containers are not equal.
     Return value: false if the container contents are equal, true otherwise. Complexity: O(size).
     */
     friend bool operator!=(const ADS_set &lhs, const ADS_set &rhs)
@@ -379,8 +335,7 @@ public:
     }
 
     /*
-    PH2
-    Overload of Assignment Operator, Copy assignment operator -> The contents of the container will be replaced by the contents of other
+    PH2: Overload of Assignment Operator, Copy assignment operator -> The contents of the container will be replaced by the contents of other
     */
     ADS_set &operator=(const ADS_set &other)
     {
@@ -396,8 +351,7 @@ public:
     }
 
     /*
-    PH2
-    Copy assignment operator. The contents of the container will be replaced by the contents of other. Return value: reference to *this  Complexity: hashing: O(size + other_size)
+    PH2: Copy assignment operator. The contents of the container will be replaced by the contents of other. Return value: reference to *this  Complexity: hashing: O(size + other_size)
     */
     ADS_set &operator=(std::initializer_list<key_type> ilist)
     {
@@ -407,6 +361,7 @@ public:
     }
 };
 
+/* ------- CONTAINER PRIVATE METHODS IMPLEMENTATION ------- */
 template <typename Key, size_t N>
 template <typename InputIt>
 void ADS_set<Key, N>::insert(InputIt first, InputIt last)
@@ -419,6 +374,12 @@ void ADS_set<Key, N>::insert(InputIt first, InputIt last)
             add(*it);
         }
     }
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::size_type ADS_set<Key, N>::hash(const key_type &key) const
+{
+    return hasher{}(key) % table_size;
 }
 
 template <typename Key, size_t N>
@@ -444,21 +405,16 @@ typename ADS_set<Key, N>::Element *ADS_set<Key, N>::add(const key_type &key)
 template <typename Key, size_t N>
 typename ADS_set<Key, N>::Element *ADS_set<Key, N>::locate(const key_type &key) const
 {
-    Element *currentElement = table[hash(key)];
+    Element *currentElementPtr = table[hash(key)];
 
-    if (currentElement == nullptr)
+    while (currentElementPtr)
     {
-        return nullptr;
-    }
-
-    while (currentElement)
-    {
-        // return it if exists
-        if (key_equal{}(currentElement->key, key))
+        if (key_equal{}(currentElementPtr->key, key))
         {
-            return currentElement;
+            // return it if exists
+            return currentElementPtr;
         }
-        currentElement = currentElement->nextPtr;
+        currentElementPtr = currentElementPtr->nextPtr;
     }
     return nullptr; // the key not found
 }
@@ -466,7 +422,6 @@ typename ADS_set<Key, N>::Element *ADS_set<Key, N>::locate(const key_type &key) 
 template <typename Key, size_t N>
 void ADS_set<Key, N>::reserve(size_type n)
 {
-
     if ((table_size * max_load_factor) >= n)
     {
         return;
@@ -484,7 +439,6 @@ void ADS_set<Key, N>::reserve(size_type n)
 template <typename Key, size_t N>
 void ADS_set<Key, N>::rehash(size_type n)
 {
-    //  std::cout << "#410 REHASH with n: " << n << std::endl;
     size_type new_table_size{
         std::max(N,
                  std::max(n,
@@ -497,7 +451,6 @@ void ADS_set<Key, N>::rehash(size_type n)
 
     inserted_elements = 0;
     table = new_table;
-
     table_size = new_table_size;
 
     for (size_type index{0}; index < old_table_size; ++index)
@@ -510,18 +463,20 @@ void ADS_set<Key, N>::rehash(size_type n)
             while (currentElementPtr)
             {
                 add(currentElementPtr->key);
-                currentElementPtr = currentElementPtr->nextPtr;
-                // TODO: delete the unused ptr, deleted on the stack?
+                // to prevenet memory leak
+                Element *auxPtr = currentElementPtr;
+                currentElementPtr = auxPtr->nextPtr;
+                delete auxPtr;
             }
         }
     }
-    delete[] old_table;
+    delete[] old_table; // not needed anymore
 }
 
 template <typename Key, size_t N>
 void ADS_set<Key, N>::dump(std::ostream &o) const
 {
-    Element *currentElementPtr;
+    Element *current_element_ptr;
 
     o << "table_size = " << table_size << ", inserted_elements = " << inserted_elements << "\n";
     for (size_type index{0}; index < table_size; ++index)
@@ -535,13 +490,13 @@ void ADS_set<Key, N>::dump(std::ostream &o) const
 
         o << "[";
 
-        currentElementPtr = table[index];
+        current_element_ptr = table[index];
 
-        while (currentElementPtr)
+        while (current_element_ptr)
         {
-            o << currentElementPtr->key;
-            currentElementPtr = currentElementPtr->nextPtr;
-            if (currentElementPtr)
+            o << current_element_ptr->key;
+            current_element_ptr = current_element_ptr->nextPtr;
+            if (current_element_ptr)
             {
                 o << " -> ";
             }
@@ -551,32 +506,24 @@ void ADS_set<Key, N>::dump(std::ostream &o) const
     o << "\n";
 }
 
+/* ------- ITERATOR ------- */
 /*
- PH2
+ PH2 Iterator must implement:
+ 1. at which element I am in the data structure
+ 2. how do I get to the next one
+ 3. how do I recognize the "end"
  */
 template <typename Key, size_t N>
 class ADS_set<Key, N>::Iterator
 {
 private:
     Element **table;
-    Element *currentElementPtr;
+    Element *current_element_ptr;
     size_type index;
     size_type table_size;
 
-    void skip()
-    {
-        while (!currentElementPtr)
-        {
-            if ((index + 1) < table_size)
-            {
-                currentElementPtr = table[++index];
-            }
-            else
-            {
-                return;
-            }
-        }
-    }
+    /* goes through all the elements and skips empty slots */
+    void skip();
 
 public:
     using value_type = Key;
@@ -587,21 +534,23 @@ public:
 
     /* default constructor that performs no conversions is required */
     explicit Iterator(Element **table = nullptr,
-                      Element *currentElementPtr = nullptr,
+                      Element *current_element_ptr = nullptr,
                       size_type index = 0,
                       size_type table_size = 0)
-        : table(table), currentElementPtr(currentElementPtr), index(index), table_size(table_size)
+        : table{table}, current_element_ptr{current_element_ptr}, index{index}, table_size{table_size}
     {
         skip(); // do while current position
     };
 
-    reference operator*() const { return currentElementPtr->key; };
-
-    pointer operator->() const { return &currentElementPtr->key; };
+    /* Pointer generalization */
+    reference operator*() const { return current_element_ptr->key; };
+    /* Dereferencing operator */
+    pointer operator->() const { return &current_element_ptr->key; };
 
     Iterator &operator++()
     {
-        if (currentElementPtr->nextPtr)
+        current_element_ptr = current_element_ptr->nextPtr;
+        if (current_element_ptr == nullptr)
         {
             skip();
         }
@@ -610,20 +559,30 @@ public:
 
     Iterator operator++(int)
     {
-        auto returnCode{*this};
+        auto returnCode = *this;
         ++*this;
         return returnCode;
     };
 
     friend bool operator==(const Iterator &lhs, const Iterator &rhs)
     {
-        return lhs.currentElementPtr == rhs.currentElementPtr;
+        return lhs.current_element_ptr == rhs.current_element_ptr;
     }
     friend bool operator!=(const Iterator &lhs, const Iterator &rhs)
     {
-        return !(lhs.currentElementPtr == rhs.currentElementPtr);
+        return !(lhs.current_element_ptr == rhs.current_element_ptr);
     }
 };
+
+/* ------- ITERATOR PRIVATE METHODS IMPLEMENTATION ------- */
+template <typename Key, size_t N>
+void ADS_set<Key, N>::Iterator::skip()
+{
+    while (!current_element_ptr && (index + 1 < table_size))
+    {
+        current_element_ptr = table[++index];
+    }
+}
 
 /*
  Non-member-swap() to satisfy the "swappable" concept. Calls lhs.swap(rhs) (see above).
